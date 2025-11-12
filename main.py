@@ -17,6 +17,13 @@ app = FastAPI(title="Newsletter Service", version="0.1.0")
 
 
 # Topic Endpoints
+@app.get("/topics", response_model=List[TopicSchema])
+def list_topics(db: Session = Depends(get_db)):
+    """List all topics with their IDs."""
+    topics = db.query(Topic).all()
+    return topics
+
+
 @app.post("/topics", response_model=TopicSchema, status_code=status.HTTP_201_CREATED)
 def create_topic(topic: TopicCreate, db: Session = Depends(get_db)):
     """Create a new topic."""
@@ -70,6 +77,21 @@ def subscribe_to_topic(topic_id: int, subscribe: BulkSubscribeRequest, db: Sessi
         db.refresh(subscriber)
     
     return created_subscribers
+
+
+@app.get("/topics/{topic_id}/subscribers", response_model=List[TopicSubscriberSchema])
+def get_topic_subscribers(topic_id: int, db: Session = Depends(get_db)):
+    """Get all subscribers for a specific topic."""
+    # Check if topic exists
+    topic = db.query(Topic).filter(Topic.id == topic_id).first()
+    if not topic:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Topic with id {topic_id} not found"
+        )
+    
+    subscribers = db.query(TopicSubscriber).filter(TopicSubscriber.topic_id == topic_id).all()
+    return subscribers
 
 
 # Content Endpoints
