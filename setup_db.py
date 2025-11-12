@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
-"""Script to create the database and apply the schema."""
+"""Script to create the database and apply the schema using SQLAlchemy models."""
 
 import os
 import sys
 from urllib.parse import urlparse
 import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
+from sqlalchemy import create_engine
 
 from config import DB_URL
+from models import Base
 
 # Get database URL
 db_url = os.getenv("DATABASE_URL", DB_URL)
@@ -32,37 +34,15 @@ try:
     cursor.close()
     conn.close()
 
-    # Apply schema
-    conn = psycopg2.connect(db_url)
-    cursor = conn.cursor()
-    
-    with open('schema.sql', 'r') as f:
-        schema_sql = f.read()
-    
-    # Execute each statement, ignore "already exists" errors
-    for statement in schema_sql.split(';'):
-        statement = statement.strip()
-        if not statement:
-            continue
-        try:
-            cursor.execute(statement)
-            conn.commit()
-        except psycopg2.Error as e:
-            if "already exists" in str(e).lower():
-                conn.rollback()
-            else:
-                raise
-    
-    print("Schema applied successfully!")
-    cursor.close()
-    conn.close()
+    # Create tables using SQLAlchemy models
+    engine = create_engine(db_url)
+    Base.metadata.create_all(bind=engine)
+    print("Schema applied successfully using SQLAlchemy models!")
+    engine.dispose()
 
 except psycopg2.OperationalError as e:
     print(f"Error: {e}")
     print(f"Check your DATABASE_URL: {db_url}")
-    sys.exit(1)
-except FileNotFoundError:
-    print("Error: schema.sql not found!")
     sys.exit(1)
 except Exception as e:
     print(f"Error: {e}")
