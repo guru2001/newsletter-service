@@ -1,5 +1,5 @@
 from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker
 from config import DB_URL
 
 # Add connection timeout and pool settings to prevent hanging and memory leaks

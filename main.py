@@ -2,7 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, status
 import traceback
 from sqlalchemy.orm import Session
 from typing import List
-from datetime import datetime, time, timezone
+from datetime import datetime, timezone
 
 from database import get_db
 from models import Topic, TopicSubscriber, Content
@@ -137,11 +137,6 @@ def create_content(content: ContentCreate, db: Session = Depends(get_db)):
     # Wrap in try-except to prevent content creation from failing if Celery has issues
     try:
         print(f"Scheduling newsletter to send at {scheduled_time_utc}")
-        # Ensure datetime is timezone-aware for Celery (should already be from validation above)
-        if scheduled_time_utc.tzinfo is None:
-            scheduled_time_utc = scheduled_time_utc.replace(tzinfo=timezone.utc)
-        
-        # Schedule the task - this should not block
         task_result = send_newsletter.apply_async(args=[db_content.id], eta=scheduled_time_utc)
         print(f"Newsletter scheduled to send at {scheduled_time_utc}, task_id: {task_result.id if task_result else 'N/A'}")
     except Exception as e:

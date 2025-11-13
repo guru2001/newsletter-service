@@ -1,9 +1,10 @@
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 DB_URL = os.getenv("DATABASE_URL", "postgresql://guru@localhost:5432/newsletter_system")
-# Using RabbitMQ as broker
-# Default: amqp://guest:guest@localhost:5672//
-# Format: amqp://username:password@host:port/vhost
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "amqp://guest:guest@localhost:5672//")
 CELERY_RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND", "rpc://")
 

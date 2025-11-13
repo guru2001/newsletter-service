@@ -50,17 +50,11 @@ def send_newsletter(content_id: int):
         # Initialize SendGrid client
         if not SENDGRID_API_KEY:
             print("Error: SENDGRID_API_KEY not configured")
-            print("⚠️  Check Render environment variables - SENDGRID_API_KEY is missing or empty")
             return
         
         if not SENDGRID_FROM_EMAIL:
             print("Error: SENDGRID_FROM_EMAIL not configured")
-            print("⚠️  Check Render environment variables - SENDGRID_FROM_EMAIL is missing or empty")
             return
-        
-        # Log configuration status (without exposing full API key)
-        api_key_preview = f"{SENDGRID_API_KEY[:10]}..." if len(SENDGRID_API_KEY) > 10 else "INVALID"
-        print(f"SendGrid Config: API Key starts with {api_key_preview}, From: {SENDGRID_FROM_EMAIL}")
         
         sg = SendGridAPIClient(SENDGRID_API_KEY)
         
@@ -94,19 +88,7 @@ def send_newsletter(content_id: int):
                     
             except Exception as e:
                 error_count += 1
-                error_msg = str(e)
-                print(f"Error sending email to {subscriber.email}: {error_msg}")
-                
-                # Provide helpful error messages for common issues
-                if "403" in error_msg or "Forbidden" in error_msg:
-                    print("⚠️  SendGrid 403 Forbidden - Common causes:")
-                    print("   1. API key is invalid or doesn't have 'Mail Send' permissions")
-                    print("   2. Sender email is not verified in SendGrid")
-                    print("   3. SendGrid account is suspended or needs verification")
-                    print("   4. Free tier daily limit (100 emails) exceeded")
-                    print(f"   Check: SendGrid Dashboard → Settings → Sender Authentication")
-                    print(f"   Verify sender: {SENDGRID_FROM_EMAIL}")
-                
+                print(f"Error sending email to {subscriber.email}: {e}")
                 traceback.print_exc()
         
         # Mark content as delivered
@@ -123,6 +105,4 @@ def send_newsletter(content_id: int):
     finally:
         if db:
             db.close()
-            # Explicitly remove reference to help garbage collection
-            db = None
 
