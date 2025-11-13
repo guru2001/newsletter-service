@@ -16,6 +16,7 @@ CREATE TABLE content (
     id SERIAL PRIMARY KEY,
     topic_id INT NOT NULL REFERENCES topics(id) ON DELETE CASCADE,
     content_text TEXT NOT NULL,
-    scheduled_time TIMESTAMP NOT NULL,
+    scheduled_time_utc TIMESTAMP NOT NULL,
+    delivered BOOLEAN DEFAULT FALSE NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

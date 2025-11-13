@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, TIMESTAMP, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Text, ForeignKey, TIMESTAMP, Boolean, UniqueConstraint
 from sqlalchemy.sql import func
 from sqlalchemy.orm import declarative_base
 
@@ -29,5 +29,6 @@ class Content(Base):
     id = Column(Integer, primary_key=True, index=True)
     topic_id = Column(Integer, ForeignKey("topics.id", ondelete="CASCADE"), nullable=False)
     content_text = Column(Text, nullable=False)
-    scheduled_time = Column(TIMESTAMP, nullable=False)
+    scheduled_time_utc = Column(TIMESTAMP, nullable=False)
+    delivered = Column(Boolean, nullable=False, default=False)
     created_at = Column(TIMESTAMP, server_default=func.now())

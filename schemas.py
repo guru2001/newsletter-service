@@ -33,10 +33,11 @@ class Content(BaseModel):
     id: int
     topic_id: int
     content_text: str
-    scheduled_time: datetime
+    scheduled_time_utc: datetime
+    delivered: bool
     created_at: datetime
 
 class ContentCreate(BaseModel):
     topic_id: int
     content_text: str
-    scheduled_time: datetime
+    scheduled_time_utc: datetime
