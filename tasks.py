@@ -15,8 +15,9 @@ def send_newsletter(content_id: int):
     Args:
         content_id: The ID of the Content record to send
     """
-    db = SessionLocal()
+    db = None
     try:
+        db = SessionLocal()
         # Get the content
         content = db.query(Content).filter(Content.id == content_id).first()
         if not content:
@@ -49,11 +50,17 @@ def send_newsletter(content_id: int):
         # Initialize SendGrid client
         if not SENDGRID_API_KEY:
             print("Error: SENDGRID_API_KEY not configured")
+            print("⚠️  Check Render environment variables - SENDGRID_API_KEY is missing or empty")
             return
         
         if not SENDGRID_FROM_EMAIL:
             print("Error: SENDGRID_FROM_EMAIL not configured")
+            print("⚠️  Check Render environment variables - SENDGRID_FROM_EMAIL is missing or empty")
             return
+        
+        # Log configuration status (without exposing full API key)
+        api_key_preview = f"{SENDGRID_API_KEY[:10]}..." if len(SENDGRID_API_KEY) > 10 else "INVALID"
+        print(f"SendGrid Config: API Key starts with {api_key_preview}, From: {SENDGRID_FROM_EMAIL}")
         
         sg = SendGridAPIClient(SENDGRID_API_KEY)
         
@@ -77,11 +84,29 @@ def send_newsletter(content_id: int):
                     print(f"Email sent successfully to {subscriber.email}")
                 else:
                     error_count += 1
-                    print(f"Failed to send email to {subscriber.email}: Status {response.status_code}")
+                    # Try to get error details from response
+                    try:
+                        error_body = response.body.decode('utf-8') if response.body else "No error details"
+                        print(f"Failed to send email to {subscriber.email}: Status {response.status_code}")
+                        print(f"Error details: {error_body}")
+                    except:
+                        print(f"Failed to send email to {subscriber.email}: Status {response.status_code}")
                     
             except Exception as e:
                 error_count += 1
-                print(f"Error sending email to {subscriber.email}: {e}")
+                error_msg = str(e)
+                print(f"Error sending email to {subscriber.email}: {error_msg}")
+                
+                # Provide helpful error messages for common issues
+                if "403" in error_msg or "Forbidden" in error_msg:
+                    print("⚠️  SendGrid 403 Forbidden - Common causes:")
+                    print("   1. API key is invalid or doesn't have 'Mail Send' permissions")
+                    print("   2. Sender email is not verified in SendGrid")
+                    print("   3. SendGrid account is suspended or needs verification")
+                    print("   4. Free tier daily limit (100 emails) exceeded")
+                    print(f"   Check: SendGrid Dashboard → Settings → Sender Authentication")
+                    print(f"   Verify sender: {SENDGRID_FROM_EMAIL}")
+                
                 traceback.print_exc()
         
         # Mark content as delivered
@@ -93,7 +118,11 @@ def send_newsletter(content_id: int):
     except Exception as e:
         print(f"Error in send_newsletter task: {e}")
         traceback.print_exc()
-        db.rollback()
+        if db:
+            db.rollback()
     finally:
-        db.close()
+        if db:
+            db.close()
+            # Explicitly remove reference to help garbage collection
+            db = None
 
