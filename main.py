@@ -1,6 +1,8 @@
 from fastapi import FastAPI, Depends, HTTPException, status
+import traceback
 from sqlalchemy.orm import Session
 from typing import List
+from datetime import datetime, time, timezone
 
 from database import get_db
 from models import Topic, TopicSubscriber, Content
@@ -12,6 +14,7 @@ from schemas import (
     Content as ContentSchema,
     ContentCreate,
 )
+from tasks import send_newsletter
 
 app = FastAPI(title="Newsletter Service", version="0.1.0")
 
@@ -97,7 +100,7 @@ def get_topic_subscribers(topic_id: int, db: Session = Depends(get_db)):
 # Content Endpoints
 @app.post("/content", response_model=ContentSchema, status_code=status.HTTP_201_CREATED)
 def create_content(content: ContentCreate, db: Session = Depends(get_db)):
-    """Create new newsletter content."""
+    """Create new newsletter content and trigger Celery task to send newsletter."""
     # Check if topic exists
     topic = db.query(Topic).filter(Topic.id == content.topic_id).first()
     if not topic:
@@ -106,14 +109,47 @@ def create_content(content: ContentCreate, db: Session = Depends(get_db)):
             detail=f"Topic with id {content.topic_id} not found"
         )
     
+    # Validate scheduled_time_utc must be in the future
+    now = datetime.now(timezone.utc)
+    scheduled_time_utc = content.scheduled_time_utc
+    
+    # If scheduled_time_utc is timezone-naive, assume UTC
+    if scheduled_time_utc.tzinfo is None:
+        scheduled_time_utc = scheduled_time_utc.replace(tzinfo=timezone.utc)
+    
+    # Reject if scheduled_time_utc is not in the future
+    if scheduled_time_utc <= now:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Scheduled time must be in the future. Provided: {scheduled_time_utc}, Current: {now}"
+        )
+    
     db_content = Content(
         topic_id=content.topic_id,
         content_text=content.content_text,
-        scheduled_time=content.scheduled_time
+        scheduled_time_utc=content.scheduled_time_utc
     )
     db.add(db_content)
     db.commit()
     db.refresh(db_content)
+    
+    # Schedule Celery task to run at the scheduled time
+    # Wrap in try-except to prevent content creation from failing if Celery has issues
+    try:
+        print(f"Scheduling newsletter to send at {scheduled_time_utc}")
+        # Ensure datetime is timezone-aware for Celery (should already be from validation above)
+        if scheduled_time_utc.tzinfo is None:
+            scheduled_time_utc = scheduled_time_utc.replace(tzinfo=timezone.utc)
+        
+        # Schedule the task - this should not block
+        task_result = send_newsletter.apply_async(args=[db_content.id], eta=scheduled_time_utc)
+        print(f"Newsletter scheduled to send at {scheduled_time_utc}, task_id: {task_result.id if task_result else 'N/A'}")
+    except Exception as e:
+        # Log error but don't fail the request if Celery fails
+        print(f"Warning: Failed to schedule Celery task: {e}")
+        traceback.print_exc()
+        # Don't raise - allow content creation to succeed even if scheduling fails
+    
     return db_content
 
 
