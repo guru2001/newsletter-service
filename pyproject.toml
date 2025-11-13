@@ -11,6 +11,7 @@ dependencies = [
     "psycopg2-binary>=2.9.11",
     "pydantic[email]>=2.12.4",
     "python-dotenv>=1.2.1",
+    "sendgrid>=6.12.5",
     "sqlalchemy>=2.0.44",
     "uvicorn>=0.38.0",
 ]
